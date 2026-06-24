@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CONFIGURATION
-const ALLOWED_IP = '127.0.0.1'; // Change to your public IP when live
+const ALLOWED_IP = '31.215.50.191'; // Change to your public IP when live
 const DISCORD_INVITE = 'https://discord.gg/aaPHm48WB3';
 
 // Ensure the 'files' directory exists
