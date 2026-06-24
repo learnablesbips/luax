@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lua X - File Verification Gate</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #171725; padding: 35px; border-radius: 8px; max-width: 380px; width:100%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 1px solid #222; }
+        h3 { margin-top: 0; color: #f5f5f5; word-break: break-all; }
+        .btn-discord { background: #5865F2; color: #fff; text-decoration: none; display: block; padding: 14px; border-radius: 4px; margin: 20px 0; font-weight: bold; font-size: 16px; transition: background 0.2s; }
+        .btn-discord:hover { background: #4752C4; }
+        button { background: #00b37e; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #029469; }
+        input { width: calc(100% - 24px); padding: 10px; margin: 15px 0; border-radius: 4px; border: 1px solid #333; background: #222; color: #fff; text-align: center; font-size: 20px; font-weight: bold; }
+        .hidden { display: none; }
+        .err { color: #ff5555; font-size: 14px; margin-top: 15px; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h3 id="title">Loading File...</h3>
+    <hr style="border-color:#26263b; margin: 15px 0;">
+
+    <div id="step-1">
+        <p style="color: #aaa; font-size: 14px;">Step 1: Join our Discord Community to unlock the download phase.</p>
+        <a href="https://discord.gg/aaPHm48WB3" target="_blank" id="join-link" class="btn-discord">Join Discord Server</a>
+    </div>
+
+    <div id="step-2" class="hidden">
+        <p style="color: #aaa; font-size: 14px;">Step 2: Solve this dynamic arithmetic verification:</p>
+        <h2 id="math-problem" style="font-size: 32px; color: #00b37e; margin: 10px 0;"></h2>
+        <input type="number" id="answer" placeholder="?">
+        <button id="verify-btn">Verify & Download Script</button>
+    </div>
+    
+    <div id="error" class="err"></div>
+</div>
+
+<script>
+    const filename = window.location.pathname.split('/').pop();
+    document.getElementById('title').innerText = `Target Script: ${decodeURIComponent(filename)}`;
+
+    let clickedDiscord = false;
+    let serverAnsId = null;
+
+    document.getElementById('join-link').addEventListener('click', () => {
+        clickedDiscord = true;
+        fetch('/api/get-equation')
+            .then(r => r.json())
+            .then(data => {
+                serverAnsId = data.equationId;
+                document.getElementById('math-problem').innerText = data.equation;
+                document.getElementById('step-1').classList.add('hidden');
+                document.getElementById('step-2').classList.remove('hidden');
+                document.getElementById('error').innerText = "";
+            });
+    });
+
+    document.getElementById('verify-btn').addEventListener('click', () => {
+        const val = document.getElementById('answer').value;
+        document.getElementById('error').innerText = "";
+
+        fetch('/api/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                userAnswer: val,
+                expectedAnswer: serverAnsId,
+                discordJoined: clickedDiscord,
+                filename: filename
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.error) {
+                document.getElementById('error').innerText = data.error;
+            } else if(data.downloadUrl) {
+                window.location.href = data.downloadUrl;
+            }
+        })
+        .catch(() => {
+            document.getElementById('error').innerText = "Network verification error.";
+        });
+    });
+</script>
+</body>
+</html>
