@@ -4,10 +4,10 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Cloud adaptive port configuration
 
 // CONFIGURATION
-const ALLOWED_IP = '31.215.50.191'; // Change to your public IP when live
+const MY_IP = '31.215.50.191'; // Replace with your public IP from Google
 const DISCORD_INVITE = 'https://discord.gg/aaPHm48WB3';
 
 // Ensure the 'files' directory exists
@@ -23,17 +23,49 @@ const upload = multer({ storage: storage });
 
 app.use(express.json());
 
-// Strict Admin IP Guard Middleware
+// Strict Cloud-Aware Admin IP Guard Middleware
 const requireAdminIP = (req, res, next) => {
+    // Look through Render proxy headers first to extract your real IP
     let clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    if (clientIp.includes('::ffff:')) clientIp = clientIp.split('::ffff:')[1];
+    
+    if (clientIp && clientIp.includes(',')) {
+        clientIp = clientIp.split(',')[0].trim();
+    }
+    if (clientIp && clientIp.includes('::ffff:')) {
+        clientIp = clientIp.split('::ffff:')[1];
+    }
 
-    if (clientIp === ALLOWED_IP || clientIp === '127.0.0.1' || clientIp === '::1') {
-        next(); // Always allows local loopback access from the hosting machine
+    console.log(`Incoming request to admin dashboard from IP: ${clientIp}`);
+
+    // Validate access rights
+    if (clientIp === MY_IP || clientIp === '127.0.0.1' || clientIp === '::1') {
+        next(); 
     } else {
-        res.status(403).send('Access Denied: You do not have permission to access this page.');
+        // Outputting the exact detected IP so you can copy/paste it into MY_IP if it changes
+        res.status(403).send(`
+            <body style="font-family:sans-serif; background:#121214; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+                <div style="background:#202024; padding:30px; border-radius:8px; border:1px solid #ff5555; text-align:center; max-width:450px; width:100%;">
+                    <h3 style="color:#ff5555; margin-top:0;">Access Denied</h3>
+                    <p style="color:#8d8d99; font-size:14px;">Your current network IP is not authorized to open this control panel.</p>
+                    <p style="color:#aaa; font-size:13px; font-weight:bold; background:#121214; padding:10px; border-radius:4px; border:1px solid #333;">Detected IP: ${clientIp}</p>
+                    <span style="color:#8d8d99; font-size:12px;">If this is you, update the <code>MY_IP</code> variable in your <code>server.js</code> file on GitHub to match this value.</span>
+                </div>
+            </body>
+        `);
     }
 };
+
+// Clean Default Welcome Homepage instead of "Cannot GET /"
+app.get('/', (req, res) => {
+    res.send(`
+        <body style="font-family:sans-serif; background:#121214; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+            <div style="text-align:center;">
+                <h1 style="color:#00b37e; font-size:36px; margin-bottom:5px;">Lua X Gateway System</h1>
+                <p style="color:#8d8d99; font-size:16px;">Secure cloud file verification matrix active.</p>
+            </div>
+        </body>
+    `);
+});
 
 // Serve the Admin Dashboard (Protected)
 app.get('/admin', requireAdminIP, (req, res) => {
@@ -44,8 +76,10 @@ app.get('/admin', requireAdminIP, (req, res) => {
 app.post('/api/upload', requireAdminIP, upload.single('fileToUpload'), (req, res) => {
     if (!req.file) return res.status(400).send('No file uploaded.');
     
-    // Links will now cleanly display without ":3000"
-    const publicLink = `http://localhost/download/${encodeURIComponent(req.file.originalname)}`;
+    // Dynamic generation matching the host URL automatically
+    const host = req.get('host');
+    const publicLink = `http://${host}/download/${encodeURIComponent(req.file.originalname)}`;
+    
     res.send(`
         <body style="font-family:sans-serif; background:#121214; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
             <div style="background:#202024; padding:30px; border-radius:8px; border:1px solid #00b37e; text-align:center; max-width:400px; width:100%;">
@@ -62,7 +96,7 @@ app.post('/api/upload', requireAdminIP, upload.single('fileToUpload'), (req, res
 app.get('/download/:filename', (req, res) => {
     const filename = req.params.filename;
     if (!fs.existsSync(path.join(uploadDir, filename))) {
-        return res.status(404).send('File not found or has been removed.');
+        return res.status(404).send('File not found or has been removed from cloud storage.');
     }
     res.sendFile(path.join(__dirname, 'public', 'download.html'));
 });
@@ -98,6 +132,5 @@ app.get('/api/stream/:filename', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server Online on standard web port!`);
-    console.log(`Admin Link (Local Machine Control): http://localhost/admin`);
+    console.log(`Cloud Server Online running on port ${PORT}!`);
 });
